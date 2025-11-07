@@ -320,12 +320,17 @@ with right_col:
                                                 detected_language.title(),
                                                 st.session_state.selected_model_id if use_ai else 'amazon.titan-text-lite-v1'
                                             )
-                                            # Map target language to syntax highlighting
-                                            target_lang_map = {
-                                                "Python": "python", "Java": "java", "C++": "cpp", 
-                                                "Rust": "rust", "C": "c", "JavaScript": "javascript"
-                                            }
-                                            st.code(converted_code, language=target_lang_map.get(target_lang, "text"))
+                                            
+                                            # Check if result is an error
+                                            if converted_code.startswith("// Error:") or converted_code.startswith("Error:"):
+                                                st.error(converted_code.replace("// Error:", "").replace("Error:", "").strip())
+                                            else:
+                                                # Map target language to syntax highlighting
+                                                target_lang_map = {
+                                                    "Python": "python", "Java": "java", "C++": "cpp", 
+                                                    "Rust": "rust", "C": "c", "JavaScript": "javascript"
+                                                }
+                                                st.code(converted_code, language=target_lang_map.get(target_lang, "text"))
                         else:
                             st.code(func_code, language=code_lang)
                 else:

@@ -50,11 +50,21 @@ class BedrockHelper:
     def convert_function_to_language(self, func_code: str, target_language: str, source_language: str = "Python", model_id: str = 'amazon.titan-text-lite-v1') -> str:
         """Convert function from source language to target language using Bedrock"""
         try:
-            prompt = f"""Convert this {source_language} function to {target_language}. Keep the same logic and functionality:
+            # Clean and prepare the code
+            code_lines = func_code.strip().split('\n')
+            # Remove empty lines at start/end
+            while code_lines and not code_lines[0].strip():
+                code_lines.pop(0)
+            while code_lines and not code_lines[-1].strip():
+                code_lines.pop()
+            clean_code = '\n'.join(code_lines)
+            
+            prompt = f"""You are a code translator. Convert the following {source_language} function to {target_language}. Maintain the same functionality and logic.
 
-{func_code}
+{source_language} code:
+{clean_code}
 
-Provide only the converted code without explanations."""
+Converted {target_language} code:"""
             
             # Check if it's a Claude model (different API format)
             if 'claude' in model_id.lower():
@@ -65,14 +75,66 @@ Provide only the converted code without explanations."""
                     modelId=model_id,
                     body=json.dumps({
                         "inputText": prompt,
-                        "textGenerationConfig": {"maxTokenCount": 400}
+                        "textGenerationConfig": {
+                            "maxTokenCount": 400,
+                            "temperature": 0.7,
+                            "topP": 0.9
+                        }
                     }),
                     contentType='application/json'
                 )
                 result = json.loads(response['body'].read())
-                return result['results'][0]['outputText'].strip()
+                
+                # Check for errors in response (top level)
+                if 'message' in result:
+                    error_msg = result.get('message', 'Unknown error')
+                    # Check if it's the specific "unable to respond" error
+                    if 'unable to respond' in error_msg.lower():
+                        return f"// Error: Model cannot process this request. Try using Titan Text Lite instead, or simplify the code."
+                    return f"// Error: {error_msg}"
+                
+                # Check for results array
+                if 'results' in result and len(result['results']) > 0:
+                    first_result = result['results'][0]
+                    
+                    # Check for error message in result
+                    if 'message' in first_result:
+                        error_msg = first_result['message']
+                        if 'unable to respond' in error_msg.lower():
+                            return f"// Error: Model cannot process this request. Try using Titan Text Lite instead, or simplify the code."
+                        return f"// Error: {error_msg}"
+                    
+                    # Get output text
+                    output_text = first_result.get('outputText', '')
+                    if output_text and output_text.strip():
+                        # Clean up the output - remove any explanatory text
+                        output = output_text.strip()
+                        # Try to extract just the code if there's extra text
+                        if '```' in output:
+                            # Extract code from markdown code blocks
+                            parts = output.split('```')
+                            for i, part in enumerate(parts):
+                                if i % 2 == 1:  # Odd indices are code blocks
+                                    code = part.strip()
+                                    if code.startswith(target_language.lower()) or code.startswith('python') or code.startswith('java'):
+                                        code = '\n'.join(code.split('\n')[1:])  # Remove language identifier
+                                    if code:
+                                        return code.strip()
+                        return output
+                
+                # If no output found, return error
+                return f"// Error: Unexpected response format from model. Response: {json.dumps(result)[:200]}"
+                
         except Exception as e:
-            return f"// Error converting to {target_language}: {str(e)}"
+            error_msg = str(e)
+            # Extract more detailed error if available
+            if hasattr(e, 'response'):
+                try:
+                    error_detail = json.loads(e.response['Error'].get('Message', ''))
+                    error_msg = error_detail.get('message', error_msg)
+                except:
+                    pass
+            return f"// Error converting to {target_language}: {error_msg}"
     
     def _invoke_claude_model(self, model_id: str, prompt: str, max_tokens: int = 400) -> str:
         """Invoke Claude model with proper API format"""
@@ -116,11 +178,38 @@ Provide only a brief description in one sentence."""
                     modelId=model_id,
                     body=json.dumps({
                         "inputText": prompt,
-                        "textGenerationConfig": {"maxTokenCount": 100}
+                        "textGenerationConfig": {
+                            "maxTokenCount": 100,
+                            "temperature": 0.7,
+                            "topP": 0.9
+                        }
                     }),
                     contentType='application/json'
                 )
                 result = json.loads(response['body'].read())
-                return result['results'][0]['outputText'].strip()
+                
+                # Check for errors in response
+                if 'message' in result:
+                    return f"Function: {func_name} (Model error: {result['message']})"
+                
+                # Check for results array
+                if 'results' in result and len(result['results']) > 0:
+                    output_text = result['results'][0].get('outputText', '')
+                    if output_text:
+                        return output_text.strip()
+                    # Check for error in result
+                    if 'message' in result['results'][0]:
+                        return f"Function: {func_name} (Error: {result['results'][0]['message']})"
+                
+                return f"Function: {func_name}"
+                
         except Exception as e:
-            return f"Function: {func_name} (Error: {str(e)})"
+            error_msg = str(e)
+            # Extract more detailed error if available
+            if hasattr(e, 'response'):
+                try:
+                    error_detail = json.loads(e.response['Error'].get('Message', ''))
+                    error_msg = error_detail.get('message', error_msg)
+                except:
+                    pass
+            return f"Function: {func_name} (Error: {error_msg})"
