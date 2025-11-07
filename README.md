@@ -37,3 +37,10 @@ A simple web interface with two panes:
 * **AI Integration**: AWS Bedrock (Claude) for intelligent function summarization
 * **Deployment**: Local or cloud-based Streamlit app
 
+## Contributors
+
+* **Shriya Shivaraman** - ss7543@columbia.edu
+* **Haiyue Zhang** - hz2995@columbia.edu
+* **Tanmay Agarwal** - ta2830@columbia.edu
+* **Yanxuan Yu** - yy3523@columbia.edu (Frontend development, exploring Next.js)
+
