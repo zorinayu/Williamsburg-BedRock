@@ -23,8 +23,6 @@ class BedrockHelper:
         return [
             {'modelId': 'amazon.titan-text-lite-v1', 'modelName': 'Amazon Titan Text Lite', 'providerName': 'Amazon'},
             {'modelId': 'amazon.titan-text-express-v1', 'modelName': 'Amazon Titan Text Express', 'providerName': 'Amazon'},
-            {'modelId': 'anthropic.claude-3-haiku-20240307-v1:0', 'modelName': 'Claude 3 Haiku', 'providerName': 'Anthropic'},
-            {'modelId': 'anthropic.claude-3-sonnet-20240229-v1:0', 'modelName': 'Claude 3 Sonnet', 'providerName': 'Anthropic'},
         ]
     
     def enhance_analysis(self, analysis: Dict, model_id: str = 'amazon.titan-text-lite-v1') -> Dict:
