@@ -13,6 +13,7 @@ A simple web interface with two panes:
   * **Lines of code (LOC)**
   * **Function count**
   * **Function inventory**: Name and purpose summary for each function
+  * **Dynamic website**: the users can zoom in and out while also having the blocks clickable for indepth analysis.
 
 ## Why It's Useful
 
