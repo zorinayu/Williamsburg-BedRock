@@ -11,8 +11,7 @@ A simple web interface with two panes:
   * **Language** (auto-detected)
   * **Libraries used** (imported dependencies)
   * **Lines of code (LOC)**
-  * **Function count**
-   * **Function inventory**: Name and purpose summary for each function
+  * **Function count and inventory**: Function count with detailed inventory showing name and purpose summary for each function
   * **Dynamic website**: the users can zoom in and out while also having the blocks clickable for indepth analysis.
 
 ## Why It's Useful
