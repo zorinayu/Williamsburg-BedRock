@@ -121,24 +121,16 @@ def format_tree_text(tree):
 st.set_page_config(
     page_title="Interview Code Lens", 
     page_icon="👀", 
-    layout="wide",
-    menu_items={
-        'Get Help': None,
-        'Report a bug': None,
-        'About': None
-    }
+    layout="wide"
 )
 
-# Hide the default Streamlit menu and footer
-hide_streamlit_style = """
+# Only hide deploy button, keep menu and footer
+hide_deploy_style = """
     <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
     .stDeployButton {display: none;}
-    button[title="View app source"] {display: none;}
     </style>
 """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+st.markdown(hide_deploy_style, unsafe_allow_html=True)
 
 # Show login form if user clicked login button
 if st.session_state.show_login:
