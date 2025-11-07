@@ -57,7 +57,7 @@ left_col, right_col = st.columns([1, 2])
 with left_col:
     st.subheader("📁 Upload Code File")
     uploaded_file = st.file_uploader("Choose a code file", type=None, accept_multiple_files=False)
-    use_ai = st.toggle("✨ Enhance with AI", value=False)
+    use_ai = st.toggle("✨ Enhance with AI (Amazon Titan-text-lite-v1)", value=False)
     if uploaded_file:
         st.success(f"✅ File loaded: {uploaded_file.name}")
 
@@ -138,40 +138,31 @@ with right_col:
                         
                         # Language conversion tabs
                         if use_ai:
-                            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([detected_language, "Java", "C++", "Rust", "C", "JavaScript"])
+                            # Define all available languages
+                            all_languages = ["Python", "Java", "C++", "Rust", "C", "JavaScript"]
                             
-                            with tab1:
+                            # Remove current language and add it as first tab
+                            target_languages = [lang for lang in all_languages if lang.lower() != detected_language]
+                            tab_languages = [detected_language.title()] + target_languages
+                            
+                            tabs = st.tabs(tab_languages)
+                            
+                            # First tab - original language
+                            with tabs[0]:
                                 st.code(func_code, language=code_lang)
                             
-                            with tab2:
-                                if st.button(f"Convert {func_name} to Java", key=f"java_{func_name}"):
-                                    with st.spinner("Converting to Java..."):
-                                        java_code = bedrock.convert_function_to_language(func_code, "Java", detected_language)
-                                        st.code(java_code, language="java")
-                            
-                            with tab3:
-                                if st.button(f"Convert {func_name} to C++", key=f"cpp_{func_name}"):
-                                    with st.spinner("Converting to C++..."):
-                                        cpp_code = bedrock.convert_function_to_language(func_code, "C++", detected_language)
-                                        st.code(cpp_code, language="cpp")
-                            
-                            with tab4:
-                                if st.button(f"Convert {func_name} to Rust", key=f"rust_{func_name}"):
-                                    with st.spinner("Converting to Rust..."):
-                                        rust_code = bedrock.convert_function_to_language(func_code, "Rust", detected_language)
-                                        st.code(rust_code, language="rust")
-                            
-                            with tab5:
-                                if st.button(f"Convert {func_name} to C", key=f"c_{func_name}"):
-                                    with st.spinner("Converting to C..."):
-                                        c_code = bedrock.convert_function_to_language(func_code, "C", detected_language)
-                                        st.code(c_code, language="c")
-                            
-                            with tab6:
-                                if st.button(f"Convert {func_name} to JavaScript", key=f"js_{func_name}"):
-                                    with st.spinner("Converting to JavaScript..."):
-                                        js_code = bedrock.convert_function_to_language(func_code, "JavaScript", detected_language)
-                                        st.code(js_code, language="javascript")
+                            # Conversion tabs
+                            for i, target_lang in enumerate(target_languages, 1):
+                                with tabs[i]:
+                                    if st.button(f"Convert {func_name} to {target_lang}", key=f"{target_lang.lower()}_{func_name}"):
+                                        with st.spinner(f"Converting to {target_lang}..."):
+                                            converted_code = bedrock.convert_function_to_language(func_code, target_lang)
+                                            # Map target language to syntax highlighting
+                                            target_lang_map = {
+                                                "Python": "python", "Java": "java", "C++": "cpp", 
+                                                "Rust": "rust", "C": "c", "JavaScript": "javascript"
+                                            }
+                                            st.code(converted_code, language=target_lang_map.get(target_lang, "text"))
                         else:
                             st.code(func_code, language=code_lang)
                 else:
