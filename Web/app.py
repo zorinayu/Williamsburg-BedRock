@@ -56,14 +56,14 @@ left_col, right_col = st.columns([1, 2])
 
 with left_col:
     st.subheader("📁 Upload Code File")
-    uploaded_file = st.file_uploader("Choose a Python file (.py)", type=["py"])
+    uploaded_file = st.file_uploader("Choose a code file", type=None, accept_multiple_files=False)
     use_ai = st.toggle("✨ Enhance with AI", value=False)
     if uploaded_file:
         st.success(f"✅ File loaded: {uploaded_file.name}")
 
 with right_col:
     if not uploaded_file:
-        st.info("👈 Upload a `.py` file on the left to see instant insights.")
+        st.info("👈 Upload any code file on the left to see instant insights.")
     else:
         code_bytes = uploaded_file.read()
         code_text = code_bytes.decode("utf-8", errors="ignore")
@@ -116,44 +116,64 @@ with right_col:
                     with st.expander(f"`{func_name}`", expanded=False):
                         st.write(func_summary)
                         
+                        # Get language for syntax highlighting
+                        detected_language = analysis.get('language', 'python').lower()
+                        # Map language names to streamlit code language identifiers
+                        lang_map = {
+                            'python': 'python',
+                            'javascript': 'javascript',
+                            'typescript': 'typescript',
+                            'java': 'java',
+                            'c++': 'cpp',
+                            'c': 'c',
+                            'go': 'go',
+                            'rust': 'rust',
+                            'c#': 'csharp',
+                            'ruby': 'ruby',
+                            'php': 'php',
+                            'swift': 'swift',
+                            'kotlin': 'kotlin',
+                        }
+                        code_lang = lang_map.get(detected_language, 'text')
+                        
                         # Language conversion tabs
                         if use_ai:
-                            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Python", "Java", "C++", "Rust", "C", "JavaScript"])
+                            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([detected_language, "Java", "C++", "Rust", "C", "JavaScript"])
                             
                             with tab1:
-                                st.code(func_code, language="python")
+                                st.code(func_code, language=code_lang)
                             
                             with tab2:
                                 if st.button(f"Convert {func_name} to Java", key=f"java_{func_name}"):
                                     with st.spinner("Converting to Java..."):
-                                        java_code = bedrock.convert_function_to_language(func_code, "Java")
+                                        java_code = bedrock.convert_function_to_language(func_code, "Java", detected_language)
                                         st.code(java_code, language="java")
                             
                             with tab3:
                                 if st.button(f"Convert {func_name} to C++", key=f"cpp_{func_name}"):
                                     with st.spinner("Converting to C++..."):
-                                        cpp_code = bedrock.convert_function_to_language(func_code, "C++")
+                                        cpp_code = bedrock.convert_function_to_language(func_code, "C++", detected_language)
                                         st.code(cpp_code, language="cpp")
                             
                             with tab4:
                                 if st.button(f"Convert {func_name} to Rust", key=f"rust_{func_name}"):
                                     with st.spinner("Converting to Rust..."):
-                                        rust_code = bedrock.convert_function_to_language(func_code, "Rust")
+                                        rust_code = bedrock.convert_function_to_language(func_code, "Rust", detected_language)
                                         st.code(rust_code, language="rust")
                             
                             with tab5:
                                 if st.button(f"Convert {func_name} to C", key=f"c_{func_name}"):
                                     with st.spinner("Converting to C..."):
-                                        c_code = bedrock.convert_function_to_language(func_code, "C")
+                                        c_code = bedrock.convert_function_to_language(func_code, "C", detected_language)
                                         st.code(c_code, language="c")
                             
                             with tab6:
                                 if st.button(f"Convert {func_name} to JavaScript", key=f"js_{func_name}"):
                                     with st.spinner("Converting to JavaScript..."):
-                                        js_code = bedrock.convert_function_to_language(func_code, "JavaScript")
+                                        js_code = bedrock.convert_function_to_language(func_code, "JavaScript", detected_language)
                                         st.code(js_code, language="javascript")
                         else:
-                            st.code(func_code, language="python")
+                            st.code(func_code, language=code_lang)
                 else:
                     # Backward compatibility
                     func_name, func_summary = func_data
@@ -164,5 +184,23 @@ with right_col:
         
         st.subheader("📝 Source Code")
         with st.expander("Click to view source code", expanded=False):
-            st.code(code_text, language="python")
+            # Get language for syntax highlighting
+            detected_language = analysis.get('language', 'python').lower()
+            lang_map = {
+                'python': 'python',
+                'javascript': 'javascript',
+                'typescript': 'typescript',
+                'java': 'java',
+                'c++': 'cpp',
+                'c': 'c',
+                'go': 'go',
+                'rust': 'rust',
+                'c#': 'csharp',
+                'ruby': 'ruby',
+                'php': 'php',
+                'swift': 'swift',
+                'kotlin': 'kotlin',
+            }
+            code_lang = lang_map.get(detected_language, 'text')
+            st.code(code_text, language=code_lang)
             

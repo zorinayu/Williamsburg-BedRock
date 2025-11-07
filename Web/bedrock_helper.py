@@ -18,12 +18,14 @@ class BedrockHelper:
     
     def enhance_analysis(self, analysis: Dict) -> Dict:
         try:
+            language = analysis.get('language', 'Unknown')
             enhanced_functions = []
             for func_data in analysis['functions']:
                 if len(func_data) == 3:
                     func_name, func_summary, func_code = func_data
-                    if func_summary.startswith("Function with"):
-                        enhanced_summary = self._generate_function_summary(func_name)
+                    # Enhance summary for any language
+                    if func_summary.startswith("Function:") or func_summary.startswith("Function with"):
+                        enhanced_summary = self._generate_function_summary(func_name, func_code, language)
                         enhanced_functions.append((func_name, enhanced_summary, func_code))
                     else:
                         enhanced_functions.append((func_name, func_summary, func_code))
@@ -36,10 +38,10 @@ class BedrockHelper:
         except Exception:
             return analysis
     
-    def convert_function_to_language(self, func_code: str, target_language: str) -> str:
-        """Convert Python function to another programming language using Bedrock"""
+    def convert_function_to_language(self, func_code: str, target_language: str, source_language: str = "Python") -> str:
+        """Convert function from source language to target language using Bedrock"""
         try:
-            prompt = f"""Convert this Python function to {target_language}. Keep the same logic and functionality:
+            prompt = f"""Convert this {source_language} function to {target_language}. Keep the same logic and functionality:
 
 {func_code}
 
@@ -59,15 +61,22 @@ Provide only the converted code without explanations."""
         except Exception:
             return f"// Error converting to {target_language}"
     
-    def _generate_function_summary(self, func_name: str) -> str:
+    def _generate_function_summary(self, func_name: str, func_code: str = "", language: str = "Python") -> str:
         try:
-            prompt = f"Describe what a function named '{func_name}' likely does in 1 sentence."
+            if func_code:
+                prompt = f"""Analyze this {language} function and provide a concise one-sentence description of what it does:
+
+{func_code[:500]}
+
+Provide only a brief description in one sentence."""
+            else:
+                prompt = f"Describe what a {language} function named '{func_name}' likely does in 1 sentence."
             
             response = self.bedrock_runtime.invoke_model(
                 modelId='amazon.titan-text-lite-v1',
                 body=json.dumps({
                     "inputText": prompt,
-                    "textGenerationConfig": {"maxTokenCount": 50}
+                    "textGenerationConfig": {"maxTokenCount": 100}
                 }),
                 contentType='application/json'
             )
@@ -75,4 +84,4 @@ Provide only the converted code without explanations."""
             result = json.loads(response['body'].read())
             return result['results'][0]['outputText'].strip()
         except Exception:
-            return f"Function with name '{func_name}'"
+            return f"Function: {func_name}"
