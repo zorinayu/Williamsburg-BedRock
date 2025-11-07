@@ -15,8 +15,39 @@ else:
 class BedrockHelper:
     def __init__(self):
         self.bedrock_runtime = boto3.client('bedrock-runtime', region_name='us-west-2')
+        self.bedrock = boto3.client('bedrock', region_name='us-west-2')
     
-    def enhance_analysis(self, analysis: Dict) -> Dict:
+    def get_available_models(self):
+        """Get list of available Bedrock foundation models"""
+        try:
+            response = self.bedrock.list_foundation_models()
+            models = []
+            for model in response.get('modelSummaries', []):
+                model_id = model.get('modelId', '')
+                # Filter for text generation models
+                if any(x in model_id.lower() for x in ['titan', 'claude', 'llama', 'mistral', 'jurassic', 'cohere']):
+                    models.append({
+                        'modelId': model_id,
+                        'modelName': model.get('modelName', model_id),
+                        'providerName': model.get('providerName', 'Unknown')
+                    })
+            return sorted(models, key=lambda x: x['modelName'])
+        except Exception as e:
+            # Return default models if API call fails
+            return [
+                {'modelId': 'amazon.titan-text-lite-v1', 'modelName': 'Amazon Titan Text Lite', 'providerName': 'Amazon'},
+                {'modelId': 'amazon.titan-text-express-v1', 'modelName': 'Amazon Titan Text Express', 'providerName': 'Amazon'},
+                {'modelId': 'anthropic.claude-3-5-sonnet-20241022-v2:0', 'modelName': 'Claude 3.5 Sonnet', 'providerName': 'Anthropic'},
+                {'modelId': 'anthropic.claude-3-opus-20240229-v1:0', 'modelName': 'Claude 3 Opus', 'providerName': 'Anthropic'},
+                {'modelId': 'anthropic.claude-3-sonnet-20240229-v1:0', 'modelName': 'Claude 3 Sonnet', 'providerName': 'Anthropic'},
+                {'modelId': 'anthropic.claude-3-haiku-20240307-v1:0', 'modelName': 'Claude 3 Haiku', 'providerName': 'Anthropic'},
+                {'modelId': 'meta.llama3-1-8b-instant-v1:0', 'modelName': 'Llama 3.1 8B Instant', 'providerName': 'Meta'},
+                {'modelId': 'meta.llama3-1-70b-instant-v1:0', 'modelName': 'Llama 3.1 70B Instant', 'providerName': 'Meta'},
+                {'modelId': 'mistral.mistral-7b-instruct-v0:2', 'modelName': 'Mistral 7B Instruct', 'providerName': 'Mistral AI'},
+                {'modelId': 'mistral.mixtral-8x7b-instruct-v0:1', 'modelName': 'Mixtral 8x7B Instruct', 'providerName': 'Mistral AI'},
+            ]
+    
+    def enhance_analysis(self, analysis: Dict, model_id: str = 'amazon.titan-text-lite-v1') -> Dict:
         try:
             language = analysis.get('language', 'Unknown')
             enhanced_functions = []
@@ -25,7 +56,7 @@ class BedrockHelper:
                     func_name, func_summary, func_code = func_data
                     # Enhance summary for any language
                     if func_summary.startswith("Function:") or func_summary.startswith("Function with"):
-                        enhanced_summary = self._generate_function_summary(func_name, func_code, language)
+                        enhanced_summary = self._generate_function_summary(func_name, func_code, language, model_id)
                         enhanced_functions.append((func_name, enhanced_summary, func_code))
                     else:
                         enhanced_functions.append((func_name, func_summary, func_code))
@@ -38,7 +69,7 @@ class BedrockHelper:
         except Exception:
             return analysis
     
-    def convert_function_to_language(self, func_code: str, target_language: str, source_language: str = "Python") -> str:
+    def convert_function_to_language(self, func_code: str, target_language: str, source_language: str = "Python", model_id: str = 'amazon.titan-text-lite-v1') -> str:
         """Convert function from source language to target language using Bedrock"""
         try:
             prompt = f"""Convert this {source_language} function to {target_language}. Keep the same logic and functionality:
@@ -47,21 +78,47 @@ class BedrockHelper:
 
 Provide only the converted code without explanations."""
             
+            # Check if it's a Claude model (different API format)
+            if 'claude' in model_id.lower():
+                return self._invoke_claude_model(model_id, prompt, max_tokens=400)
+            else:
+                # Titan and other models
+                response = self.bedrock_runtime.invoke_model(
+                    modelId=model_id,
+                    body=json.dumps({
+                        "inputText": prompt,
+                        "textGenerationConfig": {"maxTokenCount": 400}
+                    }),
+                    contentType='application/json'
+                )
+                result = json.loads(response['body'].read())
+                return result['results'][0]['outputText'].strip()
+        except Exception as e:
+            return f"// Error converting to {target_language}: {str(e)}"
+    
+    def _invoke_claude_model(self, model_id: str, prompt: str, max_tokens: int = 400) -> str:
+        """Invoke Claude model with proper API format"""
+        try:
             response = self.bedrock_runtime.invoke_model(
-                modelId='amazon.titan-text-lite-v1',
+                modelId=model_id,
                 body=json.dumps({
-                    "inputText": prompt,
-                    "textGenerationConfig": {"maxTokenCount": 400}
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": max_tokens,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ]
                 }),
                 contentType='application/json'
             )
-            
             result = json.loads(response['body'].read())
-            return result['results'][0]['outputText'].strip()
-        except Exception:
-            return f"// Error converting to {target_language}"
+            return result['content'][0]['text'].strip()
+        except Exception as e:
+            raise Exception(f"Claude API error: {str(e)}")
     
-    def _generate_function_summary(self, func_name: str, func_code: str = "", language: str = "Python") -> str:
+    def _generate_function_summary(self, func_name: str, func_code: str = "", language: str = "Python", model_id: str = 'amazon.titan-text-lite-v1') -> str:
         try:
             if func_code:
                 prompt = f"""Analyze this {language} function and provide a concise one-sentence description of what it does:
@@ -72,16 +129,20 @@ Provide only a brief description in one sentence."""
             else:
                 prompt = f"Describe what a {language} function named '{func_name}' likely does in 1 sentence."
             
-            response = self.bedrock_runtime.invoke_model(
-                modelId='amazon.titan-text-lite-v1',
-                body=json.dumps({
-                    "inputText": prompt,
-                    "textGenerationConfig": {"maxTokenCount": 100}
-                }),
-                contentType='application/json'
-            )
-            
-            result = json.loads(response['body'].read())
-            return result['results'][0]['outputText'].strip()
-        except Exception:
-            return f"Function: {func_name}"
+            # Check if it's a Claude model (different API format)
+            if 'claude' in model_id.lower():
+                return self._invoke_claude_model(model_id, prompt, max_tokens=100)
+            else:
+                # Titan and other models
+                response = self.bedrock_runtime.invoke_model(
+                    modelId=model_id,
+                    body=json.dumps({
+                        "inputText": prompt,
+                        "textGenerationConfig": {"maxTokenCount": 100}
+                    }),
+                    contentType='application/json'
+                )
+                result = json.loads(response['body'].read())
+                return result['results'][0]['outputText'].strip()
+        except Exception as e:
+            return f"Function: {func_name} (Error: {str(e)})"

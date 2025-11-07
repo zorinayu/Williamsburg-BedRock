@@ -1,12 +1,86 @@
 import streamlit as st
 import os
 import sys
+import hashlib
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
 
 from code_analyzer import CodeAnalyzer
 from bedrock_helper import BedrockHelper
+
+# Initialize session state for authentication
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'username' not in st.session_state:
+    st.session_state.username = None
+if 'show_login' not in st.session_state:
+    st.session_state.show_login = False
+
+# Simple user database (in production, use a proper database)
+USERS = {
+    'admin': hashlib.sha256('admin123'.encode()).hexdigest(),
+    'user': hashlib.sha256('user123'.encode()).hexdigest(),
+}
+
+def authenticate(username, password):
+    """Authenticate user"""
+    if not username or not password:
+        return False
+    username = username.strip()
+    if username in USERS:
+        password_hash = hashlib.sha256(password.strip().encode()).hexdigest()
+        if USERS[username] == password_hash:
+            return True
+    return False
+
+def login_form():
+    """Display login form"""
+    st.header("🔐 Login")
+    st.markdown("---")
+    
+    # Show test credentials
+    with st.expander("ℹ️ Test Credentials", expanded=True):
+        st.code("""
+Username: admin
+Password: admin123
+
+Username: user  
+Password: user123
+        """)
+    
+    username = st.text_input("Username", key="login_username", placeholder="Enter username")
+    password = st.text_input("Password", type="password", key="login_password", placeholder="Enter password")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        login_btn = st.button("Login", use_container_width=True, type="primary")
+    with col2:
+        cancel_btn = st.button("Cancel", use_container_width=True)
+    
+    if login_btn:
+        if not username or not password:
+            st.error("Please enter both username and password")
+        elif authenticate(username, password):
+            st.session_state.authenticated = True
+            st.session_state.username = username
+            st.session_state.show_login = False
+            st.success(f"✅ Welcome, {username}!")
+            st.rerun()
+        else:
+            st.error("❌ Invalid username or password")
+            st.info("💡 Hint: Check the test credentials above")
+    
+    if cancel_btn:
+        st.session_state.show_login = False
+        st.rerun()
+
+def logout():
+    """Logout user"""
+    st.session_state.authenticated = False
+    st.session_state.username = None
+    st.session_state.show_login = False
+    st.rerun()
 
 def format_tree_text(tree):
     """Format code tree as text"""
@@ -44,20 +118,97 @@ def format_tree_text(tree):
     
     return "\n".join(lines)
 
-st.set_page_config(page_title="Interview Code Lens", page_icon="👀", layout="wide")
+st.set_page_config(
+    page_title="Interview Code Lens", 
+    page_icon="👀", 
+    layout="wide",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': None
+    }
+)
 
-st.title("👀 Interview Code Lens")
+# Hide the default Streamlit menu and footer
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display: none;}
+    button[title="View app source"] {display: none;}
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+# Show login form if user clicked login button
+if st.session_state.show_login:
+    # Center the login form
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        login_form()
+    st.stop()
+
+# Main content - always shown (login is optional)
+# Login/Logout button in top right corner
+col1, col2 = st.columns([10, 1])
+with col1:
+    st.title("👀 Interview Code Lens")
+with col2:
+    if st.session_state.authenticated:
+        if st.button("🚪 Logout", key="logout_top"):
+            logout()
+    else:
+        if st.button("🔐 Login", key="login_top"):
+            st.session_state.show_login = True
+            st.rerun()
+
 st.markdown("**Instant Code Snapshot** - Get a 10-second overview of coding style and tech stack")
+
+# Show login status in sidebar
+with st.sidebar:
+    if st.session_state.authenticated:
+        st.success(f"✅ Logged in as: **{st.session_state.username}**")
+    else:
+        st.info("💡 Login is optional - click Login button to access additional features")
 
 analyzer = CodeAnalyzer()
 bedrock = BedrockHelper()
+
+# Get available models
+available_models = bedrock.get_available_models()
+model_options = {f"{m['modelName']} ({m['providerName']})": m['modelId'] for m in available_models}
+
+# Initialize session state for selected model
+if 'selected_model_id' not in st.session_state:
+    st.session_state.selected_model_id = 'amazon.titan-text-lite-v1'
 
 left_col, right_col = st.columns([1, 2])
 
 with left_col:
     st.subheader("📁 Upload Code File")
     uploaded_file = st.file_uploader("Choose a code file", type=None, accept_multiple_files=False)
-    use_ai = st.toggle("✨ Enhance with AI (Amazon Titan-text-lite-v1)", value=False)
+    
+    # AI Enhancement section
+    st.markdown("---")
+    st.subheader("🤖 AI Enhancement")
+    use_ai = st.toggle("✨ Enable AI Enhancement", value=False)
+    
+    selected_model_display = None
+    if use_ai:
+        # Model selection dropdown
+        selected_model_display = st.selectbox(
+            "Select Bedrock Model:",
+            options=list(model_options.keys()),
+            index=0,
+            help="Choose which AWS Bedrock model to use for AI enhancement"
+        )
+        st.session_state.selected_model_id = model_options[selected_model_display]
+        
+        # Show model info
+        selected_model = next((m for m in available_models if m['modelId'] == st.session_state.selected_model_id), None)
+        if selected_model:
+            st.caption(f"Provider: {selected_model['providerName']}")
+    
     if uploaded_file:
         st.success(f"✅ File loaded: {uploaded_file.name}")
 
@@ -71,8 +222,8 @@ with right_col:
         with st.spinner("Analyzing code..."):
             analysis = analyzer.analyze(code_text, uploaded_file.name)
             if use_ai and analysis['functions']:
-                with st.spinner("Enhancing function summaries with AI..."):
-                    analysis = bedrock.enhance_analysis(analysis)
+                with st.spinner(f"Enhancing function summaries with AI ({selected_model_display if use_ai else ''})..."):
+                    analysis = bedrock.enhance_analysis(analysis, st.session_state.selected_model_id)
         
         st.subheader("📊 Overview")
         metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
@@ -156,7 +307,12 @@ with right_col:
                                 with tabs[i]:
                                     if st.button(f"Convert {func_name} to {target_lang}", key=f"{target_lang.lower()}_{func_name}"):
                                         with st.spinner(f"Converting to {target_lang}..."):
-                                            converted_code = bedrock.convert_function_to_language(func_code, target_lang)
+                                            converted_code = bedrock.convert_function_to_language(
+                                                func_code, 
+                                                target_lang, 
+                                                detected_language.title(),
+                                                st.session_state.selected_model_id if use_ai else 'amazon.titan-text-lite-v1'
+                                            )
                                             # Map target language to syntax highlighting
                                             target_lang_map = {
                                                 "Python": "python", "Java": "java", "C++": "cpp", 
