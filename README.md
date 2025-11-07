@@ -76,7 +76,7 @@ Powered by **Amazon Bedrock (Claude 3 Sonnet / Titan)**:
 ```text
 User Upload → Parser → Snapshot Metrics → Bedrock Summaries → Visual Graph → Exports
 
-
+```
 
 
 
