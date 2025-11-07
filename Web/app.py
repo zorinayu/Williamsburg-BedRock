@@ -178,7 +178,7 @@ bedrock = BedrockHelper()
 available_models = bedrock.get_available_models()
 model_options = {f"{m['modelName']} ({m['providerName']})": m['modelId'] for m in available_models}
 
-# Initialize session state for selected model
+# Initialize session state for selected model (default to Titan Lite)
 if 'selected_model_id' not in st.session_state:
     st.session_state.selected_model_id = 'amazon.titan-text-lite-v1'
 
@@ -195,11 +195,18 @@ with left_col:
     
     selected_model_display = None
     if use_ai:
+        # Find default model index (Titan Lite)
+        default_index = 0
+        for i, (key, model_id) in enumerate(model_options.items()):
+            if model_id == st.session_state.selected_model_id:
+                default_index = i
+                break
+        
         # Model selection dropdown
         selected_model_display = st.selectbox(
             "Select Bedrock Model:",
             options=list(model_options.keys()),
-            index=0,
+            index=default_index,
             help="Choose which AWS Bedrock model to use for AI enhancement"
         )
         st.session_state.selected_model_id = model_options[selected_model_display]

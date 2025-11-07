@@ -15,37 +15,17 @@ else:
 class BedrockHelper:
     def __init__(self):
         self.bedrock_runtime = boto3.client('bedrock-runtime', region_name='us-west-2')
-        self.bedrock = boto3.client('bedrock', region_name='us-west-2')
     
     def get_available_models(self):
         """Get list of available Bedrock foundation models"""
-        try:
-            response = self.bedrock.list_foundation_models()
-            models = []
-            for model in response.get('modelSummaries', []):
-                model_id = model.get('modelId', '')
-                # Filter for text generation models
-                if any(x in model_id.lower() for x in ['titan', 'claude', 'llama', 'mistral', 'jurassic', 'cohere']):
-                    models.append({
-                        'modelId': model_id,
-                        'modelName': model.get('modelName', model_id),
-                        'providerName': model.get('providerName', 'Unknown')
-                    })
-            return sorted(models, key=lambda x: x['modelName'])
-        except Exception as e:
-            # Return default models if API call fails
-            return [
-                {'modelId': 'amazon.titan-text-lite-v1', 'modelName': 'Amazon Titan Text Lite', 'providerName': 'Amazon'},
-                {'modelId': 'amazon.titan-text-express-v1', 'modelName': 'Amazon Titan Text Express', 'providerName': 'Amazon'},
-                {'modelId': 'anthropic.claude-3-5-sonnet-20241022-v2:0', 'modelName': 'Claude 3.5 Sonnet', 'providerName': 'Anthropic'},
-                {'modelId': 'anthropic.claude-3-opus-20240229-v1:0', 'modelName': 'Claude 3 Opus', 'providerName': 'Anthropic'},
-                {'modelId': 'anthropic.claude-3-sonnet-20240229-v1:0', 'modelName': 'Claude 3 Sonnet', 'providerName': 'Anthropic'},
-                {'modelId': 'anthropic.claude-3-haiku-20240307-v1:0', 'modelName': 'Claude 3 Haiku', 'providerName': 'Anthropic'},
-                {'modelId': 'meta.llama3-1-8b-instant-v1:0', 'modelName': 'Llama 3.1 8B Instant', 'providerName': 'Meta'},
-                {'modelId': 'meta.llama3-1-70b-instant-v1:0', 'modelName': 'Llama 3.1 70B Instant', 'providerName': 'Meta'},
-                {'modelId': 'mistral.mistral-7b-instruct-v0:2', 'modelName': 'Mistral 7B Instruct', 'providerName': 'Mistral AI'},
-                {'modelId': 'mistral.mixtral-8x7b-instruct-v0:1', 'modelName': 'Mixtral 8x7B Instruct', 'providerName': 'Mistral AI'},
-            ]
+        # Return a conservative list of well-tested models
+        # Default model (amazon.titan-text-lite-v1) is first
+        return [
+            {'modelId': 'amazon.titan-text-lite-v1', 'modelName': 'Amazon Titan Text Lite', 'providerName': 'Amazon'},
+            {'modelId': 'amazon.titan-text-express-v1', 'modelName': 'Amazon Titan Text Express', 'providerName': 'Amazon'},
+            {'modelId': 'anthropic.claude-3-haiku-20240307-v1:0', 'modelName': 'Claude 3 Haiku', 'providerName': 'Anthropic'},
+            {'modelId': 'anthropic.claude-3-sonnet-20240229-v1:0', 'modelName': 'Claude 3 Sonnet', 'providerName': 'Anthropic'},
+        ]
     
     def enhance_analysis(self, analysis: Dict, model_id: str = 'amazon.titan-text-lite-v1') -> Dict:
         try:
