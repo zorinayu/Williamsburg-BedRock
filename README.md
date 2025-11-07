@@ -272,9 +272,9 @@ This project is part of a Columbia University course project.
 
 ## 👥 Contributors
 
-* **Shriya Shivaraman** - ss7543@columbia.edu
 * **Haiyue Zhang** - hz2995@columbia.edu (Backend development, AWS Infrastructure)
-* **Tanmay Agarwal** - ta2830@columbia.edu
+* **Tanmay Agarwal** - ta2830@columbia.edu [Site](https://tanmayresume.com)
+* **Shriya Shivaraman** - ss7543@columbia.edu
 * **Yanxuan Yu** - yy3523@columbia.edu (Frontend development, exploring Next.js)
 
 ---
