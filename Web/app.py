@@ -165,3 +165,4 @@ with right_col:
         st.subheader("📝 Source Code")
         with st.expander("Click to view source code", expanded=False):
             st.code(code_text, language="python")
+            
