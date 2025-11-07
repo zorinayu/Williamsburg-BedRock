@@ -165,3 +165,12 @@ with right_col:
         st.subheader("📝 Source Code")
         with st.expander("Click to view source code", expanded=False):
             st.code(code_text, language="python")
+
+if __name__ == "__main__":
+    # Ensure we're in the correct directory when running directly
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(script_dir)
+    
+    # Run Streamlit app
+    import subprocess
+    subprocess.run([sys.executable, "-m", "streamlit", "run", __file__])
