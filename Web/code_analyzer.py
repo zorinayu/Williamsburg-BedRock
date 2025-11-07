@@ -9,7 +9,7 @@ class CodeAnalyzer:
     def count_loc(self, text: str) -> int:
         return sum(1 for line in text.splitlines() if line.strip())
     
-    def parse_python(self, source: str) -> Tuple[List[str], List[Tuple[str, str]]]:
+    def parse_python(self, source: str) -> Tuple[List[str], List[Tuple[str, str, str]]]:
         try:
             tree = ast.parse(source)
         except SyntaxError:
@@ -25,6 +25,7 @@ class CodeAnalyzer:
                     libraries.add(node.module.split(".")[0])
         
         functions = []
+        source_lines = source.splitlines()
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef):
                 doc = ast.get_docstring(node)
@@ -33,7 +34,13 @@ class CodeAnalyzer:
                 else:
                     arg_names = [a.arg for a in node.args.args]
                     summary = f"Function with parameters: {', '.join(arg_names)}" if arg_names else "Function with no parameters"
-                functions.append((node.name, summary))
+                
+                # Extract function source code
+                start_line = node.lineno - 1
+                end_line = node.end_lineno if hasattr(node, 'end_lineno') else len(source_lines)
+                func_code = '\n'.join(source_lines[start_line:end_line])
+                
+                functions.append((node.name, summary, func_code))
         
         return sorted(libraries), functions
     

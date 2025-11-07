@@ -110,9 +110,55 @@ with right_col:
         
         st.subheader("🔧 Function Inventory")
         if analysis['functions']:
-            for func_name, func_summary in analysis['functions']:
-                with st.expander(f"`{func_name}`", expanded=False):
-                    st.write(func_summary)
+            for func_data in analysis['functions']:
+                if len(func_data) == 3:
+                    func_name, func_summary, func_code = func_data
+                    with st.expander(f"`{func_name}`", expanded=False):
+                        st.write(func_summary)
+                        
+                        # Language conversion tabs
+                        if use_ai:
+                            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Python", "Java", "C++", "Rust", "C", "JavaScript"])
+                            
+                            with tab1:
+                                st.code(func_code, language="python")
+                            
+                            with tab2:
+                                if st.button(f"Convert {func_name} to Java", key=f"java_{func_name}"):
+                                    with st.spinner("Converting to Java..."):
+                                        java_code = bedrock.convert_function_to_language(func_code, "Java")
+                                        st.code(java_code, language="java")
+                            
+                            with tab3:
+                                if st.button(f"Convert {func_name} to C++", key=f"cpp_{func_name}"):
+                                    with st.spinner("Converting to C++..."):
+                                        cpp_code = bedrock.convert_function_to_language(func_code, "C++")
+                                        st.code(cpp_code, language="cpp")
+                            
+                            with tab4:
+                                if st.button(f"Convert {func_name} to Rust", key=f"rust_{func_name}"):
+                                    with st.spinner("Converting to Rust..."):
+                                        rust_code = bedrock.convert_function_to_language(func_code, "Rust")
+                                        st.code(rust_code, language="rust")
+                            
+                            with tab5:
+                                if st.button(f"Convert {func_name} to C", key=f"c_{func_name}"):
+                                    with st.spinner("Converting to C..."):
+                                        c_code = bedrock.convert_function_to_language(func_code, "C")
+                                        st.code(c_code, language="c")
+                            
+                            with tab6:
+                                if st.button(f"Convert {func_name} to JavaScript", key=f"js_{func_name}"):
+                                    with st.spinner("Converting to JavaScript..."):
+                                        js_code = bedrock.convert_function_to_language(func_code, "JavaScript")
+                                        st.code(js_code, language="javascript")
+                        else:
+                            st.code(func_code, language="python")
+                else:
+                    # Backward compatibility
+                    func_name, func_summary = func_data
+                    with st.expander(f"`{func_name}`", expanded=False):
+                        st.write(func_summary)
         else:
             st.write("No functions found.")
         
