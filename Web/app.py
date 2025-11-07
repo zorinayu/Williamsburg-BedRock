@@ -87,14 +87,6 @@ with right_col:
         else:
             st.write("— No external libraries detected")
         
-        st.subheader("🔧 Function Inventory")
-        if analysis['functions']:
-            for func_name, func_summary in analysis['functions']:
-                with st.expander(f"`{func_name}`", expanded=False):
-                    st.write(func_summary)
-        else:
-            st.write("No functions found.")
-        
         st.subheader("🌳 Code Structure Tree")
         if analysis.get('tree_graphviz'):
             try:
@@ -115,6 +107,14 @@ with right_col:
                     st.code(tree_text, language="text")
         else:
             st.write("📄 (Simple script - no classes or functions)")
+        
+        st.subheader("🔧 Function Inventory")
+        if analysis['functions']:
+            for func_name, func_summary in analysis['functions']:
+                with st.expander(f"`{func_name}`", expanded=False):
+                    st.write(func_summary)
+        else:
+            st.write("No functions found.")
         
         st.subheader("📝 Source Code")
         with st.expander("Click to view source code", expanded=False):

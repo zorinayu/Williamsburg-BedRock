@@ -2,40 +2,30 @@
 """
 Test script to verify AWS Bedrock API connection
 """
-import os
-import requests
+import boto3
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-# Get API key
-api_key = os.getenv('AWS_BEARER_TOKEN_BEDROCK')
-
-if not api_key:
-    print("ERROR: AWS_BEARER_TOKEN_BEDROCK not found")
-    exit(1)
-
-# Test connection to Bedrock API
-headers = {
-    'Authorization': f'Bearer {api_key}',
-    'Content-Type': 'application/json'
-}
-
 try:
-    # List foundation models endpoint
-    response = requests.get(
-        'https://bedrock.us-east-1.amazonaws.com/foundation-models',
-        headers=headers,
-        timeout=10
+    # Create Bedrock Runtime client (for inference)
+    bedrock_runtime = boto3.client('bedrock-runtime', region_name='us-west-2')
+    
+    # Test with a simple invoke
+    response = bedrock_runtime.invoke_model(
+        modelId='amazon.titan-text-lite-v1',
+        body='{"inputText": "Hello", "textGenerationConfig": {"maxTokenCount": 10}}',
+        contentType='application/json'
     )
     
-    if response.status_code == 200:
-        print("SUCCESS: Connected to AWS Bedrock API")
-    else:
-        print(f"ERROR: API returned status code {response.status_code}")
-        exit(1)
+    print("SUCCESS: Connected to AWS Bedrock Runtime API")
+    print("Bedrock is working for inference")
+    
 except Exception as e:
     print(f"ERROR: Connection failed - {str(e)}")
+    if "AccessDenied" in str(e):
+        print("\nYour AWS role doesn't have Bedrock permissions.")
+        print("Contact your AWS administrator to add Bedrock access.")
     exit(1)
 
