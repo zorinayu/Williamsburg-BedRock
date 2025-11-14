@@ -3,6 +3,7 @@ import boto3
 import json
 from dotenv import load_dotenv
 from typing import Dict
+import requests
 
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 env_path = os.path.join(parent_dir, '.env')
@@ -14,7 +15,48 @@ else:
 
 class BedrockHelper:
     def __init__(self):
-        self.bedrock_runtime = boto3.client('bedrock-runtime', region_name='us-west-2')
+        # Check for bearer token authentication
+        bearer_token = os.getenv('AWS_BEARER_TOKEN_BEDROCK')
+        if bearer_token:
+            # Use bearer token authentication
+            self.bearer_token = bearer_token
+            self.use_bearer_token = True
+            self.region = 'us-west-2'
+            self.bedrock_runtime = None  # Will use direct HTTP requests
+        else:
+            # Use default AWS credentials
+            self.use_bearer_token = False
+            self.bedrock_runtime = boto3.client('bedrock-runtime', region_name='us-west-2')
+    
+    def _invoke_model_with_bearer_token(self, model_id: str, body: dict) -> dict:
+        """Invoke Bedrock model using bearer token authentication"""
+        url = f"https://bedrock-runtime.{self.region}.amazonaws.com/model/{model_id}/invoke"
+        headers = {
+            'Authorization': f'Bearer {self.bearer_token}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+        response = requests.post(url, headers=headers, json=body, timeout=60)
+        response.raise_for_status()
+        return response.json()
+    
+    def _invoke_model(self, model_id: str, body: dict, content_type: str = 'application/json'):
+        """Unified method to invoke model with either bearer token or boto3"""
+        if self.use_bearer_token:
+            result = self._invoke_model_with_bearer_token(model_id, body)
+            # Convert to boto3-like response format
+            class ResponseBody:
+                def __init__(self, data):
+                    self.data = data
+                def read(self):
+                    return json.dumps(self.data).encode('utf-8')
+            return {'body': ResponseBody(result)}
+        else:
+            return self.bedrock_runtime.invoke_model(
+                modelId=model_id,
+                body=json.dumps(body),
+                contentType=content_type
+            )
     
     def get_available_models(self):
         """Get list of available Bedrock foundation models"""
@@ -71,18 +113,15 @@ Converted {target_language} code:"""
                 return self._invoke_claude_model(model_id, prompt, max_tokens=400)
             else:
                 # Titan and other models
-                response = self.bedrock_runtime.invoke_model(
-                    modelId=model_id,
-                    body=json.dumps({
-                        "inputText": prompt,
-                        "textGenerationConfig": {
-                            "maxTokenCount": 400,
-                            "temperature": 0.7,
-                            "topP": 0.9
-                        }
-                    }),
-                    contentType='application/json'
-                )
+                request_body = {
+                    "inputText": prompt,
+                    "textGenerationConfig": {
+                        "maxTokenCount": 400,
+                        "temperature": 0.7,
+                        "topP": 0.9
+                    }
+                }
+                response = self._invoke_model(model_id, request_body)
                 result = json.loads(response['body'].read())
                 
                 # Check for errors in response (top level)
@@ -139,20 +178,17 @@ Converted {target_language} code:"""
     def _invoke_claude_model(self, model_id: str, prompt: str, max_tokens: int = 400) -> str:
         """Invoke Claude model with proper API format"""
         try:
-            response = self.bedrock_runtime.invoke_model(
-                modelId=model_id,
-                body=json.dumps({
-                    "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens": max_tokens,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ]
-                }),
-                contentType='application/json'
-            )
+            request_body = {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": max_tokens,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+            }
+            response = self._invoke_model(model_id, request_body)
             result = json.loads(response['body'].read())
             return result['content'][0]['text'].strip()
         except Exception as e:
@@ -174,18 +210,15 @@ Provide only a brief description in one sentence."""
                 return self._invoke_claude_model(model_id, prompt, max_tokens=100)
             else:
                 # Titan and other models
-                response = self.bedrock_runtime.invoke_model(
-                    modelId=model_id,
-                    body=json.dumps({
-                        "inputText": prompt,
-                        "textGenerationConfig": {
-                            "maxTokenCount": 100,
-                            "temperature": 0.7,
-                            "topP": 0.9
-                        }
-                    }),
-                    contentType='application/json'
-                )
+                request_body = {
+                    "inputText": prompt,
+                    "textGenerationConfig": {
+                        "maxTokenCount": 100,
+                        "temperature": 0.7,
+                        "topP": 0.9
+                    }
+                }
+                response = self._invoke_model(model_id, request_body)
                 result = json.loads(response['body'].read())
                 
                 # Check for errors in response

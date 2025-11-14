@@ -86,7 +86,8 @@ Powered by **Amazon Bedrock (Claude 3 Sonnet / Titan)**:
 ### **Backend**
 - **Python + FastAPI / Streamlit Server**
 - **Static analysis:** `ast`, `asttokens`, and `radon`
-- **AI integration:** AWS Bedrock SDK
+- **AI integration:** AWS Bedrock API (via HTTP requests with `requests` library)
+  - Bearer Token authentication for API keys
   - Claude 3 Sonnet → code summaries, reviewer Qs  
   - Titan Text → translation  
   - Titan Embeddings (optional) → semantic node search
@@ -127,12 +128,11 @@ Bedrock AI Analysis → Visual Graph → Interactive Exploration
 
 3. **Configure AWS Bedrock** (Optional, for AI features)
    - Create a `.env` file in the root directory
-   - Add your AWS credentials:
+   - Add your AWS Bedrock API Key (Bearer Token):
      ```env
-     AWS_ACCESS_KEY_ID=your_access_key
-     AWS_SECRET_ACCESS_KEY=your_secret_key
-     AWS_DEFAULT_REGION=us-west-2
+     AWS_BEARER_TOKEN_BEDROCK=your_bedrock_api_key
      ```
+   - **Note**: This project now uses Bearer Token authentication with direct HTTP requests via the `requests` library, instead of traditional AWS credentials with boto3. This provides better compatibility with AWS Bedrock API keys.
 
 4. **Run the application**
    ```bash
@@ -227,7 +227,8 @@ The application automatically detects and analyzes:
 * **Backend**: 
   - Python AST parsing (for Python files)
   - Regex-based parsing (for 40+ other languages)
-  - AWS Bedrock SDK integration
+  - AWS Bedrock API integration via HTTP requests (using `requests` library)
+  - Bearer Token authentication for AWS Bedrock API keys
 
 * **AI Integration**: 
   - AWS Bedrock (Titan Text Lite) for code conversion
