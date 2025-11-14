@@ -36,9 +36,16 @@ class BedrockHelper:
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         }
-        response = requests.post(url, headers=headers, json=body, timeout=60)
-        response.raise_for_status()
-        return response.json()
+        try:
+            response = requests.post(url, headers=headers, json=body, timeout=60)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.HTTPError as e:
+            # Re-raise HTTP errors to be handled by the caller
+            raise
+        except requests.exceptions.RequestException as e:
+            # Handle other request errors
+            raise Exception(f"Request failed: {str(e)}")
     
     def _invoke_model(self, model_id: str, body: dict, content_type: str = 'application/json'):
         """Unified method to invoke model with either bearer token or boto3"""
@@ -128,9 +135,9 @@ Converted {target_language} code:"""
                 if 'message' in result:
                     error_msg = result.get('message', 'Unknown error')
                     # Check if it's the specific "unable to respond" error
-                    if 'unable to respond' in error_msg.lower():
-                        return f"// Error: Model cannot process this request. Try using Titan Text Lite instead, or simplify the code."
-                    return f"// Error: {error_msg}"
+                    if 'unable to respond' in error_msg.lower() or 'sorry' in error_msg.lower():
+                        return f"MODEL_ERROR: The current model cannot process this request. Please try selecting a different model (e.g., Titan Text Lite) or simplify the code."
+                    return f"MODEL_ERROR: {error_msg}"
                 
                 # Check for results array
                 if 'results' in result and len(result['results']) > 0:
@@ -139,15 +146,31 @@ Converted {target_language} code:"""
                     # Check for error message in result
                     if 'message' in first_result:
                         error_msg = first_result['message']
-                        if 'unable to respond' in error_msg.lower():
-                            return f"// Error: Model cannot process this request. Try using Titan Text Lite instead, or simplify the code."
-                        return f"// Error: {error_msg}"
+                        if 'unable to respond' in error_msg.lower() or 'sorry' in error_msg.lower():
+                            return f"MODEL_ERROR: The current model cannot process this request. Please try selecting a different model (e.g., Titan Text Lite) or simplify the code."
+                        return f"MODEL_ERROR: {error_msg}"
                     
                     # Get output text
                     output_text = first_result.get('outputText', '')
                     if output_text and output_text.strip():
                         # Clean up the output - remove any explanatory text
                         output = output_text.strip()
+                        
+                        # Check if output contains error messages (non-model related errors)
+                        # Only check for specific error patterns, not generic words that might appear in code
+                        error_patterns = [
+                            'sorry - this model',
+                            'sorry, this model',
+                            'unable to respond',
+                            'cannot process this request',
+                            'this model is unable'
+                        ]
+                        output_lower = output.lower()
+                        # Check if the output is primarily an error message (short and contains error patterns)
+                        if len(output) < 200 and any(pattern in output_lower for pattern in error_patterns):
+                            # This is likely an error message from the model
+                            return f"MODEL_ERROR: {output}"
+                        
                         # Try to extract just the code if there's extra text
                         if '```' in output:
                             # Extract code from markdown code blocks
@@ -164,6 +187,24 @@ Converted {target_language} code:"""
                 # If no output found, return error
                 return f"// Error: Unexpected response format from model. Response: {json.dumps(result)[:200]}"
                 
+        except requests.exceptions.HTTPError as e:
+            # Handle HTTP errors (non-model related)
+            error_msg = f"HTTP Error: {e.response.status_code}"
+            if e.response.status_code == 401:
+                error_msg = "Authentication failed. Please check your API key."
+            elif e.response.status_code == 403:
+                error_msg = "Access denied. Please check your API permissions."
+            elif e.response.status_code == 429:
+                error_msg = "Rate limit exceeded. Please try again later."
+            elif e.response.status_code >= 500:
+                error_msg = "Server error. Please try again later."
+            try:
+                error_detail = e.response.json()
+                if 'message' in error_detail:
+                    error_msg = error_detail['message']
+            except:
+                pass
+            return f"HTTP_ERROR: {error_msg}"
         except Exception as e:
             error_msg = str(e)
             # Extract more detailed error if available
@@ -173,7 +214,7 @@ Converted {target_language} code:"""
                     error_msg = error_detail.get('message', error_msg)
                 except:
                     pass
-            return f"// Error converting to {target_language}: {error_msg}"
+            return f"SYSTEM_ERROR: Error converting to {target_language}: {error_msg}"
     
     def _invoke_claude_model(self, model_id: str, prompt: str, max_tokens: int = 400) -> str:
         """Invoke Claude model with proper API format"""
